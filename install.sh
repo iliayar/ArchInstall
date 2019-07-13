@@ -28,7 +28,7 @@ partition() {
         parted -s /dev/sda rm $PART >/dev/null 2>&1
     done <<< "$(awk '/^ [1-9][0-9]?/ {print $1}' <<< "$dev_info" | sort -r)"
 
-    parted -s /dev/sda mktabel gpt
+    parted -s /dev/sda mklabel gpt
     parted -s /dev/sda mkpart ESP 1MiB 512MiB
     parted -s /dev/sda mkpart primary  513MiB 100%
 
@@ -52,7 +52,7 @@ mount_partition() {
     btrfs subvolume create /mnt/subvolumes/root
 
     mount -o subvol=root /dev/mapper/cryptroot /mnt/arch-root
-    mkdir /mnt/arch-chroot/{home,boot}
+    mkdir /mnt/arch-root/{home,boot}
     mount -o subvol=home /dev/mapper/cryptroot /mnt/arch-root/home
     mount /dev/sda1 /mnt/arch-root/boot
     
@@ -60,7 +60,7 @@ mount_partition() {
 
 install_pkgs() {
 
-    pacstrap /mnt base base-devel intel-ucode refind-efi dialog btrfs-progs sudo networkmanager git wget yajl xorg-server xorg-apps sddm plasma i3 termite vim zsh
+    pacstrap /mnt/arch-root base base-devel intel-ucode refind-efi dialog btrfs-progs sudo networkmanager git wget yajl xorg-server xorg-apps sddm plasma i3 termite vim zsh
 
 }
 
