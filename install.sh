@@ -1,5 +1,5 @@
 chrun() {
-    arch-chroot /mnt /bin/bash -c "$1"
+    arch-chroot /mnt/arch-root /bin/bash -c "$1"
 }
 
 internet() {
@@ -36,72 +36,102 @@ partition() {
 
 fmt_enc_partition() {
 
-    cryptsetup -y -v luksFormat /dev/sda2
+    cryptsetup luksFormat /dev/sda2
     cryptsetup open /dev/sda2 cryptroot
 
-    mkfs.btrfs -L root /dev/mapper/cryptroot
+    mkfs.btrfs -L archroot /dev/mapper/cryptroot
     mkfs.vfat -F32 /dev/sda1
 
 }
 
 mount_partition() {
 
-    mount /dev/mapper/cryptroot /mnt
-    mkdir /mnt/boot
-    mount /dev/sda1 /boot
+    mkdir /mnt/{subvolumes,arch-root}
+    mount /dev/mapper/cryptroot /mnt/subvolumes
+    btrfs subvolume create /mnt/subvolumes/home
+    btrfs subvolume create /mnt/subvolumes/root
 
+    mount -o subvol=root /dev/mapper/cryptroot /mnt/arch-root
+    mkdir /mnt/arch-chroot/{home,boot}
+    mount -o subvol=home /dev/mapper/cryptroot /mnt/arch-root/home
+    mount /dev/sda1 /mnt/arch-root/boot
+    
 }
 
 install_pkgs() {
 
-    pacstrap /mnt base base-devel intel-ucode refind-efi dialog networkmanager git wget yajl xorg-server xorg-apps sddm plasma i3 termite vim zsh
+    pacstrap /mnt base base-devel intel-ucode refind-efi dialog btrfs-progs sudo networkmanager git wget yajl xorg-server xorg-apps sddm plasma i3 termite vim zsh
 
 }
 
 make_swap() {
-
-    chrun fallocate -l 2048M /swapfile
-    chrun chmod 600 /swapfile
-    chrun mkswap /swapfile
-    chrun swapon /swapfile
+    arch-chroot /mnt/arch-root -c /bin/bash <<EOF
+    fallocate -l 4096M /swapfile
+     chmod 600 /swapfile
+    mkswap /swapfile
     chrun echo "/swapfile none swap defaults 0 0" >> /etc/fstab
+EOF
 
 }
 
 localization() {
 
-    chrun vim /etc/locale.gen
+    sed -i "s/#en_US.UTF-8/en_US.UTF-8/g" /mnt/arch-root/etc/locale.gen
     chrun locale-gen
-    chrun echo "LANG=en_US.UTF-8" > /etc/locale.conf
+    chrun 'echo "LANG=en_US.UTF-8" > /etc/locale.conf'
 
 }
 
 install_refind() {
 
     chrun refind-install
-    chrun uuid=$(cat /etc/fstab | grep "ext4")
-    chrun echo "\"Boot using default options\"     \"root=UUID=${uuid:5:36} rw add_efi_memmap init    rd=/boot/intel-ucode.img initrd=/boot/initramfs-linux.img\"" > /boot/refind_linux.conf
+    arch-chroot /mnt/arch-root /bin/bash <<EOF
+    cd /boot/EFI
+    mkdir boot
+    cp refind/refind_x64.efi boot/bootx64.efi
+EOF
+    uuid=$(ls -l /dev/disk/by-uuid/ | grep sda2 | awk '{print $9}')
+    cat > /mnt/arch-root/boot/EFI/refind/refind.conf <<EOF
+timeout 10
 
+menuentry "Arch Linux" {
+    icon     /EFI/refind/icons/os_arch.png
+    volume   "ESP"
+    loader   /vmlinuz-linux
+    initrd   /intel-ucode.img
+    initrd   /initramfs-linux.img
+    options  "cryptdevice=UUID=$uuid:cryptroot root=/dev/mapper/cryptroot rootflags=subvol=root rw add_efi_memmap"
+    submenuentry "Boot to terminal" {
+        add_options "systemd.unit=multi-user.target"
+    }
+    enabled
+}
+EOF
+echo "cryptroot UUID=$uuid none" >> /mnt/arch-root/etc/crypttab
 }
 
 add_user() {
 
-    chrun useradd -m -H video,audio,input,whell,users -s /bin/zsh iliayar
-    chrun passwd iliayar
-    chrun visudo
+    chrun 'useradd -m -H video,audio,input,whell,users -s /bin/zsh iliayar'
+    chrun 'passwd iliayar'
+    sed -i "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/g" /mnt/arch-root/etc/sudoers
 
 }
 
 extras() {
-    chrun mkdir /builds
-    chrun cd /builds; git clone https://aur.archlinux.org/package-query.git
-    chrun cd /builds/package-query/; makepkg -si
-    chrun cd /builds; git clone https://aur.archlinux.org/yaourt.git
-    chrun cd /builds/yaourt/; makepkg -si
-    chrun rm -Rf /builds
-
-    chrun systemctl enable sddm
-    chrun enable NetworkManager
+    HOME=/home/iliayar
+    arch-chroot /mnt/arch-root /bin/bash <<EOF
+    su iliayar
+    mkdir $HOME/builds
+    cd $HOME/builds; git clone https://aur.archlinux.org/package-query.git
+    cd $HOME/builds/package-query/; makepkg -si
+    cd $HOME/builds; git clone https://aur.archlinux.org/yaourt.git
+    cd $HOME/builds/yaourt/; makepkg -si
+    rm -Rf $HOME/builds
+EOF
+    HOME=/root
+    chrun 'systemctl enable sddm'
+    chrun 'enable NetworkManager'
 }
 
 main() {
@@ -131,7 +161,7 @@ install_pkgs
 clear
 
 echo "7. Fstab"
-genfstab -U /mnt >> /mnt/etc/fstab
+genfstab -U /mnt/arch-root >> /mnt/arch-root/etc/fstab
 clear
 
 echo "8. Swapfile"
@@ -139,8 +169,8 @@ make_swap
 clear
 
 echo "9. Time zone"
-chrun ln -sf /usr/share/zoneinfo/Europe/Moscow /etc/localtime
-chrun hwclock --systohc
+chrun 'ln -sf /usr/share/zoneinfo/Europe/Moscow /etc/localtime'
+chrun 'hwclock --systohc'
 clear
 
 echo "10. Localization"
@@ -148,15 +178,13 @@ localization
 clear
 
 echo "11. Network"
-chrun vim /etc/hostname
-chrun vim /etc/hosts
+chrun 'echo "ArchLaptop" > /etc/hostname'
+chrun 'echo "127.0.0.1 localhost" >> /etc/hosts'
 clear
 
 echo "12. Initramfs"
-sed -i 's/base autodetect/base udev autodetect/g' /mnt/etc/mkinitcpio.conf
-sed -i 's/autodetect consolefont/autodetect keyboard consolefont/g' /mnt/etc/mkinitcpio.conf
-sed -i 's/block filesystems/block encrypt filesystems/g' /mnt/etc/mkinitcpio.conf
-chrun mkinitcpio -p linux
+sed -i 's/block filesystems/block encrypt filesystems/g' /mnt/arch-root/etc/mkinitcpio.conf
+chrun 'mkinitcpio -p linux'
 clear
 
 echo "13. Root password"
@@ -178,3 +206,4 @@ clear
 }
 
 main
+
