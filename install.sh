@@ -65,11 +65,11 @@ install_pkgs() {
 }
 
 make_swap() {
-    arch-chroot /mnt/arch-root -c /bin/bash <<EOF
+    arch-chroot /mnt/arch-root /bin/bash <<EOF
     fallocate -l 4096M /swapfile
-     chmod 600 /swapfile
+    chmod 600 /swapfile
     mkswap /swapfile
-    chrun echo "/swapfile none swap defaults 0 0" >> /etc/fstab
+    echo "/swapfile none swap defaults 0 0" >> /etc/fstab
 EOF
 
 }
@@ -77,6 +77,7 @@ EOF
 localization() {
 
     sed -i "s/#en_US.UTF-8/en_US.UTF-8/g" /mnt/arch-root/etc/locale.gen
+    sed -i "s/#ru_Ru.UTF-8/ru_RU.UTF-8/g" /mnt/arch-root/etc/locale.gen
     chrun locale-gen
     chrun 'echo "LANG=en_US.UTF-8" > /etc/locale.conf'
 
@@ -112,7 +113,7 @@ echo "cryptroot UUID=$uuid none" >> /mnt/arch-root/etc/crypttab
 
 add_user() {
 
-    chrun 'useradd -m -H video,audio,input,whell,users -s /bin/zsh iliayar'
+    chrun 'useradd -m -G video,audio,input,whell,users -s /bin/zsh iliayar'
     chrun 'passwd iliayar'
     sed -i "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/g" /mnt/arch-root/etc/sudoers
 
@@ -131,7 +132,7 @@ extras() {
 EOF
     HOME=/root
     chrun 'systemctl enable sddm'
-    chrun 'enable NetworkManager'
+    chrun 'systemctl enable NetworkManager'
 }
 
 main() {
