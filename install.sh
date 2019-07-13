@@ -1,122 +1,178 @@
-echo "After completing press Ctrl-D"
+chrun() {
+    arch-chroot /mnt /bin/bash -c "$1"
+}
+
+internet() {
+
+    while ! ping -c 1 ya.ru; do
+        echo "   1. Retry"
+        echo "   2. Use Wi-Fi"
+        while true; do
+            echo "Choose: "
+            read test
+            echo $test | grep -G -q "^[12]$" && break
+        done
+        if [[ $test -eq 2 ]]; then
+            wifi-menu
+        fi
+    done
+
+}
+
+
+partition() {
+
+    local dev_info=$(parted -s /dev/sda print)
+
+    while read -r PART; do
+        parted -s /dev/sda rm $PART >/dev/null 2>&1
+    done <<< "$(awk '/^ [1-9][0-9]?/ {print $1}' <<< "$dev_info" | sort -r)"
+
+    parted -s /dev/sda mktabel gpt
+    parted -s /dev/sda mkpart ESP 1MiB 512MiB
+    parted -s /dev/sda mkpart primary  513MiB 100%
+
+}
+
+fmt_enc_partition() {
+
+    cryptsetup -y -v luksFormat /dev/sda2
+    cryptsetup open /dev/sda2 cryptroot
+
+    mkfs.btrfs -L root /dev/mapper/cryptroot
+    mkfs.vfat -F32 /dev/sda1
+
+}
+
+mount_partition() {
+
+    mount /dev/mapper/cryptroot /mnt
+    mkdir /mnt/boot
+    mount /dev/sda1 /boot
+
+}
+
+install_pkgs() {
+
+    pacstrap /mnt base base-devel intel-ucode refind-efi dialog networkmanager git wget yajl xorg-server xorg-apps sddm plasma i3 termite vim zsh
+
+}
+
+make_swap() {
+
+    chrun fallocate -l 2048M /swapfile
+    chrun chmod 600 /swapfile
+    chrun mkswap /swapfile
+    chrun swapon /swapfile
+    chrun echo "/swapfile none swap defaults 0 0" >> /etc/fstab
+
+}
+
+localization() {
+
+    chrun vim /etc/locale.gen
+    chrun locale-gen
+    chrun echo "LANG=en_US.UTF-8" > /etc/locale.conf
+
+}
+
+install_refind() {
+
+    chrun refind-install
+    chrun uuid=$(cat /etc/fstab | grep "ext4")
+    chrun echo "\"Boot using default options\"     \"root=UUID=${uuid:5:36} rw add_efi_memmap init    rd=/boot/intel-ucode.img initrd=/boot/initramfs-linux.img\"" > /boot/refind_linux.conf
+
+}
+
+add_user() {
+
+    chrun useradd -m -H video,audio,input,whell,users -s /bin/zsh iliayar
+    chrun passwd iliayar
+    chrun visudo
+
+}
+
+extras() {
+    chrun mkdir /builds
+    chrun cd /builds; git clone https://aur.archlinux.org/package-query.git
+    chrun cd /builds/package-query/; makepkg -si
+    chrun cd /builds; git clone https://aur.archlinux.org/yaourt.git
+    chrun cd /builds/yaourt/; makepkg -si
+    chrun rm -Rf /builds
+
+    chrun systemctl enable sddm
+    chrun enable NetworkManager
+}
+
+main() {
+
 echo "1. Connect to the Internet"
-while ! ping -c 1 ya.ru; do
-	echo "   1. Retry"
-	echo "   2. Use Wi-Fi"
-	while true; do
-		echo "Choose: "
-		read test
-		echo $test | grep -G -q "^[12]$" && break
-	done
-	if [[ $test -eq 2 ]]; then 
-	wifi-menu
-	fi
-done
+internet
+clear
 
 echo "2. Update System clock"
 timedatectl set-ntp true
+clear
+
 echo "3. Partition the disks"
-echo "   Boot partition is 256-512 MiB"
-echo "   1. Automatic with boot partiotion"
-echo "   2. Automatic without boot partition"
-echo "   3. Manual"
-while true; do
-	echo "Choose: "
-	read test
-	echo $test | grep -G -q "^[123]$" && break
-done
-if [[ $test -eq 1 ]]; then
-	echo "Enter device: "
-	read device
-	fdisk $device <<EOF
-n
+partition
+clear
 
+echo "4. Format And Encrypt partitions"
+fmt_enc_partition
+clear
 
-+512M
-t
-
-1
-n
-
-
-
-w
-EOF
-	fdisk -l
-elif [[ $test -eq 2 ]]; then
-	echo "Enter device: "
-	read $device
-	fdisk $device <<EOF
-n
-
-
-
-EOF
-	fdisk -l
-elif [[ $test -eq 3 ]]; then
-	/bin/bash
-fi
-
-echo "4. Format partitions"
-echo "   Boot partition: mkfs.fat -F32 /dev/sdxY"
-echo "   Linux partition: mkfs.ext4 /dev/sdxY"
 echo "5. Mount partitions to /mnt"
-
-echo "   1. Automatic with boot partiotion"
-echo "   2. Automatic without boot partition"
-echo "   3. Manual"
-while true; do
-	echo "Choose: "
-	read test
-	echo $test | grep -G -q "^[123]$" && break
-done
-if [[ $test -eq 1 ]]; then
-	echo "Enter boot device: "
-	read $boot_device
-	echo "Enter device: "
-	read $device
-	mkfs.fat -F32 $boot_device
-	mkfs.ext4 $device
-elif [[ $test -eq 2 ]]; then
-	echo "Enter device: "
-	read $device
-	mkfs.ext4 $device
-elif [[ $test -eq 3 ]]; then
-	/bin/bash
-fi
+mount_partition
+clear
 
 echo "6. Installing base packages"
-pacstrap /mnt base base-devel intel-ucode refind-efi dialog networkmanager
+install_pkgs
+clear
+
 echo "7. Fstab"
 genfstab -U /mnt >> /mnt/etc/fstab
-echo "8. Chroot and swapfile"
-arch-chroot /mnt
-fallocate -l 2048M /swapfile
-chmod 600 /swapfile
-mkswap /swapfile
-swapon /swapfile
-echo "/swapfile none swap defaults 0 0" >> /etc/fstab
+clear
+
+echo "8. Swapfile"
+make_swap
+clear
+
 echo "9. Time zone"
-ln -sf /usr/share/zoneinfo/Europe/Moscow /etc/localtime
-hwclock --systohc
+chrun ln -sf /usr/share/zoneinfo/Europe/Moscow /etc/localtime
+chrun hwclock --systohc
+clear
+
 echo "10. Localization"
-vi /etc/locale.gen
-locale-gen
-echo "LANG=en_US.UTF-8" > /etc/locale.conf
+localization
+clear
+
 echo "11. Network"
-vi /etc/hostname
-vi /etc/hosts
+chrun vim /etc/hostname
+chrun vim /etc/hosts
+clear
+
 echo "12. Initramfs"
-mkinitcpio -p linux
+sed -i 's/base autodetect/base udev autodetect/g' /mnt/etc/mkinitcpio.conf
+sed -i 's/autodetect consolefont/autodetect keyboard consolefont/g' /mnt/etc/mkinitcpio.conf
+sed -i 's/block filesystems/block encrypt filesystems/g' /mnt/etc/mkinitcpio.conf
+chrun mkinitcpio -p linux
+clear
+
 echo "13. Root password"
-passwd
+chrun passwd
+clear
+
 echo "14. Bootloader"
-echo "    Edit /boot/refind_linux.conf like:"
-echo '    "Boot using default options"     "root=UUID=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX rw add_efi_memmap initrd=/boot/intel-ucode.img initrd=/boot/initramfs-%v.img"'
-refind-install
-uuid=$(cat /etc/fstab | grep "ext4")
-echo "\"Boot using default options\"     \"root=UUID=${uuid:5:36} rw add_efi_memmap init    rd=/boot/intel-ucode.img initrd=/boot/initramfs-linux.img\"" > /boot/refind_linux.conf
-echo "15. Rebooting"
-exit
-umount -R /mnt
-echo "You can reboot now"
+install_refind
+clear
+
+echo "15. Add user"
+add_user
+clear
+
+echo "16. Extras installing"
+extras
+clear
+
+}
