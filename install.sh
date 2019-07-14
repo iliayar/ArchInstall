@@ -163,15 +163,15 @@ timedatectl set-ntp true
 clear
 
 echo "3. Partition the disks"
-[[ MANUAL -eq 2 ]] && partition
+[[ MANUAL -eq 2 ]] && partition || /bin/bash
 clear
 
 echo "4. Format And Encrypt partitions"
-[[ MANUAL -eq 2 ]] && fmt_enc_partition
+[[ MANUAL -eq 2 ]] && fmt_enc_partition || /bin/bash
 clear
 
 echo "5. Mount partitions to /mnt"
-[[ MANUAL -eq 2 ]] && mount_partition
+[[ MANUAL -eq 2 ]] && mount_partition || /bin/bash
 clear
 
 echo "6. Installing base packages"
@@ -201,7 +201,7 @@ chrun 'echo "127.0.0.1 localhost" >> /etc/hosts'
 clear
 
 echo "12. Initramfs"
-[[ MANUAL -eq 2 ]] && sed -i 's/block filesystems/block encrypt filesystems/g' $ARCH_ROOT/etc/mkinitcpio.conf
+[[ MANUAL -eq 2 ]] && sed -i 's/block filesystems/block encrypt filesystems/g' $ARCH_ROOT/etc/mkinitcpio.conf || /bin/bash
 chrun 'mkinitcpio -p linux'
 clear
 
@@ -210,7 +210,7 @@ chrun passwd
 clear
 
 echo "14. Bootloader"
-[[ MANUAL -eq 2 ]] && install_refind
+[[ MANUAL -eq 2 ]] && install_refind || /bin/bash
 clear
 
 echo "15. Add user"
