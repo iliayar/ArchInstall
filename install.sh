@@ -1,5 +1,8 @@
+ARCH_ROOT=/mnt/arch-root
+MANUAL=0
+
 chrun() {
-    arch-chroot /mnt/arch-root /bin/bash -c "$1"
+    arch-chroot $ARCH_ROOT /bin/bash -c "$1"
 }
 
 internet() {
@@ -51,21 +54,21 @@ mount_partition() {
     btrfs subvolume create /mnt/subvolumes/home
     btrfs subvolume create /mnt/subvolumes/root
 
-    mount -o subvol=root /dev/mapper/cryptroot /mnt/arch-root
-    mkdir /mnt/arch-root/{home,boot}
-    mount -o subvol=home /dev/mapper/cryptroot /mnt/arch-root/home
-    mount /dev/sda1 /mnt/arch-root/boot
+    mount -o subvol=root /dev/mapper/cryptroot $ARCH_ROOT
+    mkdir $ARCH_ROOT/{home,boot}
+    mount -o subvol=home /dev/mapper/cryptroot $ARCH_ROOT/home
+    mount /dev/sda1 $ARCH_ROOT/boot
     
 }
 
 install_pkgs() {
 
-    pacstrap /mnt/arch-root base base-devel intel-ucode refind-efi dialog btrfs-progs sudo networkmanager git wget yajl xorg-server xorg-apps sddm plasma i3 termite vim zsh
+    pacstrap $ARCH_ROOT base base-devel intel-ucode refind-efi dialog btrfs-progs sudo networkmanager git wget yajl xorg-server xorg-apps sddm plasma i3 termite vim zsh
 
 }
 
 make_swap() {
-    arch-chroot /mnt/arch-root /bin/bash <<EOF
+    arch-chroot $ARCH_ROOT /bin/bash <<EOF
     fallocate -l 4096M /swapfile
     chmod 600 /swapfile
     mkswap /swapfile
@@ -76,8 +79,8 @@ EOF
 
 localization() {
 
-    sed -i "s/#en_US.UTF-8/en_US.UTF-8/g" /mnt/arch-root/etc/locale.gen
-    sed -i "s/#ru_Ru.UTF-8/ru_RU.UTF-8/g" /mnt/arch-root/etc/locale.gen
+    sed -i "s/#en_US.UTF-8/en_US.UTF-8/g" $ARCH_ROOT/etc/locale.gen
+    sed -i "s/#ru_Ru.UTF-8/ru_RU.UTF-8/g" $ARCH_ROOT/etc/locale.gen
     chrun locale-gen
     chrun 'echo "LANG=en_US.UTF-8" > /etc/locale.conf'
 
@@ -86,13 +89,13 @@ localization() {
 install_refind() {
 
     chrun refind-install
-    arch-chroot /mnt/arch-root /bin/bash <<EOF
+    arch-chroot $ARCH_ROOT /bin/bash <<EOF
     cd /boot/EFI
     mkdir boot
     cp refind/refind_x64.efi boot/bootx64.efi
 EOF
     uuid=$(ls -l /dev/disk/by-uuid/ | grep sda2 | awk '{print $9}')
-    cat > /mnt/arch-root/boot/EFI/refind/refind.conf <<EOF
+    cat > $ARCH_ROOT/boot/EFI/refind/refind.conf <<EOF
 timeout 10
 
 menuentry "Arch Linux" {
@@ -108,20 +111,20 @@ menuentry "Arch Linux" {
     enabled
 }
 EOF
-echo "cryptroot UUID=$uuid none" >> /mnt/arch-root/etc/crypttab
+echo "cryptroot UUID=$uuid none" >> $ARCH_ROOT/etc/crypttab
 }
 
 add_user() {
 
     chrun 'useradd -m -G video,audio,input,whell,users -s /bin/zsh iliayar'
     chrun 'passwd iliayar'
-    sed -i "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/g" /mnt/arch-root/etc/sudoers
+    sed -i "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/g" $ARCH_ROOT/etc/sudoers
 
 }
 
 extras() {
     HOME=/home/iliayar
-    arch-chroot /mnt/arch-root /bin/bash <<EOF
+    arch-chroot $ARCH_ROOT /bin/bash <<EOF
     su iliayar
     mkdir $HOME/builds
     cd $HOME/builds; git clone https://aur.archlinux.org/package-query.git
@@ -130,12 +133,34 @@ extras() {
     cd $HOME/builds/yaourt/; makepkg -si
     rm -Rf $HOME/builds
 EOF
+	arch-chroot $ARCH_ROOT /bin/bash <<EOF
+	su iliayar
+	mkdir $HOME/Documents
+	cd $HOME/Documents
+	git clone https://github.com/iliayar/dotfiles
+	cd dotfiles
+	./install.sh
+EOF
     HOME=/root
     chrun 'systemctl enable sddm'
     chrun 'systemctl enable NetworkManager'
+	
+
+
 }
 
 main() {
+
+echo "Automatic Partitioning: "
+echo "    1. No"
+echo "    2. Yes"
+echo "Choose: "
+read MANUAL
+
+if [[ MANUAL -eq 1 ]]; then
+	echo "Enter Arch root path: "
+	read ARCH_ROOT
+fi
 
 echo "1. Connect to the Internet"
 internet
@@ -146,15 +171,15 @@ timedatectl set-ntp true
 clear
 
 echo "3. Partition the disks"
-partition
+[[ MANUAL -eq 2 ]] && partition
 clear
 
 echo "4. Format And Encrypt partitions"
-fmt_enc_partition
+[[ MANUAL -eq 2 ]] && fmt_enc_partition
 clear
 
 echo "5. Mount partitions to /mnt"
-mount_partition
+[[ MANUAL -eq 2 ]] && mount_partition
 clear
 
 echo "6. Installing base packages"
@@ -162,7 +187,7 @@ install_pkgs
 clear
 
 echo "7. Fstab"
-genfstab -U /mnt/arch-root >> /mnt/arch-root/etc/fstab
+genfstab -U $ARCH_ROOT >> $ARCH_ROOT/etc/fstab
 clear
 
 echo "8. Swapfile"
@@ -184,7 +209,7 @@ chrun 'echo "127.0.0.1 localhost" >> /etc/hosts'
 clear
 
 echo "12. Initramfs"
-sed -i 's/block filesystems/block encrypt filesystems/g' /mnt/arch-root/etc/mkinitcpio.conf
+[[ MANUAL -eq 2 ]] && sed -i 's/block filesystems/block encrypt filesystems/g' $ARCH_ROOT/etc/mkinitcpio.conf
 chrun 'mkinitcpio -p linux'
 clear
 
@@ -193,7 +218,7 @@ chrun passwd
 clear
 
 echo "14. Bootloader"
-install_refind
+[[ MANUAL -eq 2 ]] install_refind
 clear
 
 echo "15. Add user"
