@@ -219,7 +219,7 @@ chrun passwd
 clear
 
 echo "14. Bootloader"
-[[ MANUAL -eq 2 ]] install_refind
+[[ MANUAL -eq 2 ]] && install_refind
 clear
 
 echo "15. Add user"
