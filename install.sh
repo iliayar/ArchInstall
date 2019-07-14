@@ -63,13 +63,16 @@ mount_partition() {
 
 install_pkgs() {
 
-    pacstrap $ARCH_ROOT base base-devel intel-ucode refind-efi dialog btrfs-progs sudo networkmanager git wget yajl xorg-server xorg-apps sddm i3 termite vim zsh reflector plasma
+    pacstrap $ARCH_ROOT base base-devel intel-ucode refind-efi dialog btrfs-progs sudo networkmanager git wget yajl xorg-server xorg-apps sddm i3 termite vim zsh reflector
 
 }
 
 make_swap() {
     arch-chroot $ARCH_ROOT /bin/bash <<EOF
-    fallocate -l 4096M /swapfile
+    truncate -s 0 /swapfile
+    chattr +C /swapfile
+    btrfs property set /swapfile compression none
+    fallocate -l 4G /swapfile
     chmod 600 /swapfile
     mkswap /swapfile
     echo "/swapfile none swap defaults 0 0" >> /etc/fstab
