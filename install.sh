@@ -130,9 +130,10 @@ extras() {
     mkdir $HOME/builds
     cd $HOME/builds; git clone https://aur.archlinux.org/package-query.git
     cd $HOME/builds/package-query/; makepkg -si
+
     cd $HOME/builds; git clone https://aur.archlinux.org/yaourt.git
     cd $HOME/builds/yaourt/; makepkg -si
-    rm -Rf $HOME/builds
+
 EOF
 	arch-chroot $ARCH_ROOT /bin/bash <<EOF
 	su iliayar
