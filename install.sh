@@ -63,7 +63,7 @@ mount_partition() {
 
 install_pkgs() {
 
-    pacstrap $ARCH_ROOT base base-devel intel-ucode refind-efi dialog btrfs-progs sudo networkmanager git wget yajl xorg-server xorg-apps sddm i3 termite vim zsh reflector
+    pacstrap $ARCH_ROOT base base-devel intel-ucode refind-efi dialog btrfs-progs sudo networkmanager git wget yajl xorg-server xorg-apps sddm i3 termite vim zsh reflector plasma
 
 }
 
@@ -133,22 +133,12 @@ extras() {
 
     cd $HOME/builds; git clone https://aur.archlinux.org/yaourt.git
     cd $HOME/builds/yaourt/; makepkg -si
-
-EOF
-	arch-chroot $ARCH_ROOT /bin/bash <<EOF
-	su iliayar
-	mkdir $HOME/Documents
-	cd $HOME/Documents
-	git clone https://github.com/iliayar/dotfiles
-	cd dotfiles
-	./install.sh
+	
+	rm -Rf $HOME/builds
 EOF
     HOME=/root
     chrun 'systemctl enable sddm'
     chrun 'systemctl enable NetworkManager'
-	
-
-
 }
 
 main() {
