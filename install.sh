@@ -63,7 +63,7 @@ mount_partition() {
 
 install_pkgs() {
 
-    pacstrap $ARCH_ROOT base base-devel intel-ucode refind-efi dialog btrfs-progs sudo networkmanager git wget yajl xorg-server xorg-apps sddm plasma i3 termite vim zsh
+    pacstrap $ARCH_ROOT base base-devel intel-ucode refind-efi dialog btrfs-progs sudo networkmanager git wget yajl xorg-server xorg-apps sddm i3 termite vim zsh reflector
 
 }
 
@@ -124,6 +124,7 @@ add_user() {
 
 extras() {
     HOME=/home/iliayar
+    chrun 'reflector --latest 100 --protocol http --protocol https --sort rate --save /etc/pacman.d/mirrorlist'
     arch-chroot $ARCH_ROOT /bin/bash <<EOF
     su iliayar
     mkdir $HOME/builds
