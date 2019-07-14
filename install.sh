@@ -80,7 +80,7 @@ EOF
 localization() {
 
     sed -i "s/#en_US.UTF-8/en_US.UTF-8/g" $ARCH_ROOT/etc/locale.gen
-    sed -i "s/#ru_Ru.UTF-8/ru_RU.UTF-8/g" $ARCH_ROOT/etc/locale.gen
+    sed -i "s/#ru_RU.UTF-8/ru_RU.UTF-8/g" $ARCH_ROOT/etc/locale.gen
     chrun locale-gen
     chrun 'echo "LANG=en_US.UTF-8" > /etc/locale.conf'
 
