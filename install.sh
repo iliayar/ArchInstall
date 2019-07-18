@@ -126,6 +126,7 @@ add_user() {
 }
 
 extras() {
+    chrun 'echo "mkdir /home/iliayar/Documents; cd /home/iliayar/Documents; git clone https://github.com/iliayar/dotfiles; cd dotfiles; ./install.sh" >> /home/iliayar/.bashrc'
     chrun 'reflector --latest 100 --protocol http --protocol https --sort rate --save /etc/pacman.d/mirrorlist'
     chrun 'systemctl enable sddm'
     chrun 'systemctl enable NetworkManager'
