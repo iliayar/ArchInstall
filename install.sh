@@ -119,7 +119,7 @@ echo "cryptroot UUID=$uuid none" >> $ARCH_ROOT/etc/crypttab
 
 add_user() {
 
-    chrun 'useradd -m -G video,audio,input,wheel,users -s /bin/zsh iliayar'
+    chrun 'useradd -m -G video,audio,input,wheel,users -s /bin/bash iliayar'
     chrun 'passwd iliayar'
     sed -i "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/g" $ARCH_ROOT/etc/sudoers
 
