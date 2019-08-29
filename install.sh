@@ -1,5 +1,16 @@
-ARCH_ROOT=/mnt/arch-root
+ARCH_ROOT=/mnt
 MANUAL=0
+
+MOUNT_POINT=()
+DEVICE=()
+LABEL=(_ _)
+
+DEVICE_COUNT=0
+
+get_uuid() {
+    ls -l /dev/disk/by-uuid/ | grep $1 | awk '{print $9}'
+}
+
 
 chrun() {
     arch-chroot $ARCH_ROOT /bin/bash -c "$1"
@@ -25,40 +36,61 @@ internet() {
 
 partition() {
 
-    local dev_info=$(parted -s /dev/sda print)
+    echo "   Partitioning"
+    parted
+    parted -l
+    echo "Enter boot partition first and root partition second"
+    echo "<device name> <mount point> - adding device to system"
+    echo "l - list of partitions"
+    echo "q - quit"
 
-    while read -r PART; do
-        parted -s /dev/sda rm $PART >/dev/null 2>&1
-    done <<< "$(awk '/^ [1-9][0-9]?/ {print $1}' <<< "$dev_info" | sort -r)"
 
-    parted -s /dev/sda mklabel gpt
-    parted -s /dev/sda mkpart ESP 1MiB 512MiB
-    parted -s /dev/sda mkpart primary  513MiB 100%
+    while true; do
+        printf "> " && read device mount_point
+        
+        [[ inp == "q" ]] && break
+        [[ inp == "l" ]] && parted -l && continue
+        
+        DEVICE+=device
+        MOUNT_POINT+=mount_point
 
+        DEVICE_COUNT=$((DEVICE_COUNT+1))
+    done
 }
 
 fmt_enc_partition() {
+    mkfs.vfar -F32 $DEVICE[1]
 
-    cryptsetup luksFormat /dev/sda2
-    cryptsetup open /dev/sda2 cryptroot
+
+    cryptsetup luksFormat $DEVICE[2]
+    cryptsetup open $DEVICE cryptroot
 
     mkfs.btrfs -L archroot /dev/mapper/cryptroot
-    mkfs.vfat -F32 /dev/sda1
 
-}
+    mount /dev/mapper/cryptroot $ARCH_ROOT
 
-mount_partition() {
+    mkdir $ARCH_ROOT/boot
 
-    mkdir /mnt/{subvolumes,arch-root}
-    mount /dev/mapper/cryptroot /mnt/subvolumes
-    btrfs subvolume create /mnt/subvolumes/home
-    btrfs subvolume create /mnt/subvolumes/root
+    mount $DEVICE[1] $ARCH_ROOT/boot
 
-    mount -o subvol=root /dev/mapper/cryptroot $ARCH_ROOT
-    mkdir $ARCH_ROOT/{home,boot}
-    mount -o subvol=home /dev/mapper/cryptroot $ARCH_ROOT/home
-    mount /dev/sda1 $ARCH_ROOT/boot
-    
+
+    mkdir $ARCH_ROOT/etc
+    mkdir $ARCH_ROOT/etc/keyfiles
+
+    for i in {3..$DEVICE_COUNT}; do
+        LABEL+=crypt$(echo $MOUNT_POINT[$i] | sed -e "s/\///g")
+
+        dd bs=512 count=4 if=/dev/random of=$ARCH_ROOT/etc/keyfiles/$LABEL[$i] iflag=fullblock
+        chmod 600 $ARCH_ROOT/etc/keyfiles/$LABEL[$i]
+
+        cryptsetup luksFormat $DEVICE[$i] $ARCH_ROOT/eyc/keyfiles/$LABEL[$i]
+        cryptsetup open $DEVICE[$i] $LABEL[$i] --key-file $ARCH_ROOT/etc/keyfiles/$LABEL[$i]
+
+        mkfs.btrfs /dev/mapper/$LABEL[$i]
+
+        mount /dev/mapper/$LABEL[$i] $ARCH_ROOT$MOUNT_POINT[$i]
+
+    done
 }
 
 install_pkgs() {
@@ -97,7 +129,7 @@ install_refind() {
     mkdir boot
     cp refind/refind_x64.efi boot/bootx64.efi
 EOF
-    uuid=$(ls -l /dev/disk/by-uuid/ | grep sda2 | awk '{print $9}')
+    uuid=$(get_uuid ${MOUNT_POINT[2]:5})
     cat > $ARCH_ROOT/boot/EFI/refind/refind.conf <<EOF
 timeout 10
 
@@ -107,7 +139,7 @@ menuentry "Arch Linux" {
     loader   /vmlinuz-linux
     initrd   /intel-ucode.img
     initrd   /initramfs-linux.img
-    options  "cryptdevice=UUID=$uuid:cryptroot root=/dev/mapper/cryptroot rootflags=subvol=root rw add_efi_memmap"
+    options  "cryptdevice=UUID=$uuid:cryptroot root=/dev/mapper/cryptroot rw add_efi_memmap"
     submenuentry "Boot to terminal" {
         add_options "systemd.unit=multi-user.target"
     }
@@ -115,6 +147,9 @@ menuentry "Arch Linux" {
 }
 EOF
 echo "cryptroot UUID=$uuid none" >> $ARCH_ROOT/etc/crypttab
+for i in {3..$DEVICE_COUNT}; do
+ echo "$LABEL[$i] UUID=$(get_uuid ${MOUNT_POINT[$i]:5}) $ARCH_ROOT/etc/keyfiles/$LABEL[$i] luks"
+done
 }
 
 add_user() {
@@ -161,54 +196,50 @@ echo "4. Format And Encrypt partitions"
 [[ MANUAL -eq 2 ]] && fmt_enc_partition || /bin/bash
 clear
 
-echo "5. Mount partitions to /mnt"
-[[ MANUAL -eq 2 ]] && mount_partition || /bin/bash
-clear
-
-echo "6. Installing base packages"
+echo "5. Installing base packages"
 install_pkgs
 clear
 
-echo "7. Fstab"
+echo "6. Fstab"
 genfstab -U $ARCH_ROOT >> $ARCH_ROOT/etc/fstab
 clear
 
-echo "8. Swapfile"
+echo "7. Swapfile"
 make_swap
 clear
 
-echo "9. Time zone"
+echo "8. Time zone"
 chrun 'ln -sf /usr/share/zoneinfo/Europe/Moscow /etc/localtime'
 chrun 'hwclock --systohc'
 clear
 
-echo "10. Localization"
+echo "9. Localization"
 localization
 clear
 
-echo "11. Network"
+echo "10. Network"
 chrun 'echo "ArchLaptop" > /etc/hostname'
 chrun 'echo "127.0.0.1 localhost" >> /etc/hosts'
 clear
 
-echo "12. Initramfs"
+echo "11. Initramfs"
 [[ MANUAL -eq 2 ]] && sed -i 's/block filesystems/block encrypt filesystems/g' $ARCH_ROOT/etc/mkinitcpio.conf || /bin/bash
 chrun 'mkinitcpio -p linux'
 clear
 
-echo "13. Root password"
+echo "12. Root password"
 chrun passwd
 clear
 
-echo "14. Bootloader"
+echo "13. Bootloader"
 [[ MANUAL -eq 2 ]] && install_refind || /bin/bash
 clear
 
-echo "15. Add user"
+echo "14. Add user"
 add_user
 clear
 
-echo "16. Extras installing"
+echo "15. Extras installing"
 extras
 clear
 
