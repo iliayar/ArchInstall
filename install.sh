@@ -48,47 +48,49 @@ partition() {
     while true; do
         printf "> " && read device mount_point
         
-        [[ inp == "q" ]] && break
-        [[ inp == "l" ]] && parted -l && continue
+        [[ $device == "q" ]] && break
+        [[ $device == "l" ]] && parted -l && continue
         
-        DEVICE+=device
-        MOUNT_POINT+=mount_point
+	DEVICE+=($device)
+	MOUNT_POINT+=($mount_point)
 
         DEVICE_COUNT=$((DEVICE_COUNT+1))
     done
 }
 
 fmt_enc_partition() {
-    mkfs.vfar -F32 $DEVICE[1]
+    mkfs.vfat -F32 ${DEVICE[0]}
 
 
-    cryptsetup luksFormat $DEVICE[2]
-    cryptsetup open $DEVICE cryptroot
+    cryptsetup luksFormat --force-password ${DEVICE[1]}
+    cryptsetup open ${DEVICE[1]} cryptroot
 
     mkfs.btrfs -L archroot /dev/mapper/cryptroot
 
-    mount /dev/mapper/cryptroot $ARCH_ROOT
+    mount /dev/mapper/cryptroot $ARCH_ROOT/
 
     mkdir $ARCH_ROOT/boot
 
-    mount $DEVICE[1] $ARCH_ROOT/boot
+    mount ${DEVICE[0]} $ARCH_ROOT/boot
 
 
     mkdir $ARCH_ROOT/etc
     mkdir $ARCH_ROOT/etc/keyfiles
 
-    for i in {3..$DEVICE_COUNT}; do
-        LABEL+=crypt$(echo $MOUNT_POINT[$i] | sed -e "s/\///g")
+    for i in $(seq 2 $((DEVICE_COUNT-1)) ); do
+	LABEL+=(crypt$(echo ${MOUNT_POINT[$i]} | sed -e "s/\///g"))
 
-        dd bs=512 count=4 if=/dev/random of=$ARCH_ROOT/etc/keyfiles/$LABEL[$i] iflag=fullblock
-        chmod 600 $ARCH_ROOT/etc/keyfiles/$LABEL[$i]
+        dd bs=512 count=4 if=/dev/random of=$ARCH_ROOT/etc/keyfiles/${LABEL[$i]} iflag=fullblock
+        chmod 600 $ARCH_ROOT/etc/keyfiles/${LABEL[$i]}
 
-        cryptsetup luksFormat $DEVICE[$i] $ARCH_ROOT/eyc/keyfiles/$LABEL[$i]
-        cryptsetup open $DEVICE[$i] $LABEL[$i] --key-file $ARCH_ROOT/etc/keyfiles/$LABEL[$i]
+        cryptsetup luksFormat --force-password ${DEVICE[$i]} $ARCH_ROOT/etc/keyfiles/${LABEL[$i]}
+        cryptsetup open ${DEVICE[$i]} ${LABEL[$i]} --key-file $ARCH_ROOT/etc/keyfiles/${LABEL[$i]}
 
-        mkfs.btrfs /dev/mapper/$LABEL[$i]
+        mkfs.btrfs  /dev/mapper/${LABEL[$i]}
 
-        mount /dev/mapper/$LABEL[$i] $ARCH_ROOT$MOUNT_POINT[$i]
+	mkdir $ARCH_ROOT${MOUNT_POINT[$i]}
+
+        mount /dev/mapper/${LABEL[$i]} $ARCH_ROOT${MOUNT_POINT[$i]}
 
     done
 }
@@ -129,7 +131,7 @@ install_refind() {
     mkdir boot
     cp refind/refind_x64.efi boot/bootx64.efi
 EOF
-    uuid=$(get_uuid ${MOUNT_POINT[2]:5})
+    uuid=$(get_uuid ${DEVICE[1]:5})
     cat > $ARCH_ROOT/boot/EFI/refind/refind.conf <<EOF
 timeout 10
 
@@ -147,8 +149,8 @@ menuentry "Arch Linux" {
 }
 EOF
 echo "cryptroot UUID=$uuid none" >> $ARCH_ROOT/etc/crypttab
-for i in {3..$DEVICE_COUNT}; do
- echo "$LABEL[$i] UUID=$(get_uuid ${MOUNT_POINT[$i]:5}) $ARCH_ROOT/etc/keyfiles/$LABEL[$i] luks"
+for i in $(seq 2 $((DEVICE_COUNT-1)) ); do
+ echo "${LABEL[$i]} UUID=$(get_uuid ${DEVICE[$i]:5}) $ARCH_ROOT/etc/keyfiles/${LABEL[$i]} luks" >> $ARCH_ROOT/etc/crypttab
 done
 }
 
