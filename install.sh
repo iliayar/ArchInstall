@@ -150,7 +150,7 @@ menuentry "Arch Linux" {
 EOF
 echo "cryptroot UUID=$uuid none" >> $ARCH_ROOT/etc/crypttab
 for i in $(seq 2 $((DEVICE_COUNT-1)) ); do
- echo "${LABEL[$i]} UUID=$(get_uuid ${DEVICE[$i]:5}) $ARCH_ROOT/etc/keyfiles/${LABEL[$i]} luks" >> $ARCH_ROOT/etc/crypttab
+ echo "${LABEL[$i]} UUID=$(get_uuid ${DEVICE[$i]:5}) /etc/keyfiles/${LABEL[$i]} luks" >> $ARCH_ROOT/etc/crypttab
 done
 }
 
@@ -163,7 +163,7 @@ add_user() {
 }
 
 extras() {
-    chrun 'echo "mkdir /home/iliayar/Documents; cd /home/iliayar/Documents; git clone https://github.com/iliayar/dotfiles; cd dotfiles; ./install.sh" >> /home/iliayar/.bashrc'
+    chrun 'echo "nmtui; mkdir /home/iliayar/Documents; cd /home/iliayar/Documents; git clone https://github.com/iliayar/dotfiles; cd dotfiles; ./install.sh" >> /home/iliayar/.bashrc'
     chrun 'reflector --latest 100 --protocol http --protocol https --sort rate --save /etc/pacman.d/mirrorlist'
     chrun 'systemctl enable sddm'
     chrun 'systemctl enable NetworkManager'
