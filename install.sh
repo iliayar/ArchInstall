@@ -3,7 +3,7 @@ MANUAL=0
 
 MOUNT_POINT=()
 DEVICE=()
-LABEL=(_ _)
+LABEL=()
 
 DEVICE_COUNT=0
 
@@ -39,46 +39,47 @@ partition() {
     echo "   Partitioning"
     parted
     parted -l
-    echo "Enter boot partition first and root partition second"
-    echo "<device name> <mount point> - adding device to system"
-    echo "l - list of partitions"
-    echo "q - quit"
+    echo "Leave empty for skip"
 
 
-    while true; do
-        printf "> " && read device mount_point
-        
-        [[ $device == "q" ]] && break
-        [[ $device == "l" ]] && parted -l && continue
-        
-	DEVICE+=($device)
-	MOUNT_POINT+=($mount_point)
+    for device in $(lsblk | grep "─" | awk '{print $1}'); do
+    	print "${device:2} > "; read mount_point
 
-        DEVICE_COUNT=$((DEVICE_COUNT+1))
+    	[[ -z $mount_point ]] && continue
+
+ 	  	DEVICE+=(/dev/${device:2})
+    	MOUNT_POINT+=($mount_point)
+
+    	DEVICE_COUNT=$((DEVICE_COUNT+1))
     done
+
 }
 
 fmt_enc_partition() {
-    mkfs.vfat -F32 ${DEVICE[0]}
-
-
-    cryptsetup luksFormat --force-password ${DEVICE[1]}
-    cryptsetup open ${DEVICE[1]} cryptroot
-
-    mkfs.btrfs -L archroot /dev/mapper/cryptroot
-
-    mount /dev/mapper/cryptroot $ARCH_ROOT/
-
-    mkdir $ARCH_ROOT/boot
-
-    mount ${DEVICE[0]} $ARCH_ROOT/boot
-
-
     mkdir $ARCH_ROOT/etc
     mkdir $ARCH_ROOT/etc/keyfiles
 
     for i in $(seq 2 $((DEVICE_COUNT-1)) ); do
-	LABEL+=(crypt$(echo ${MOUNT_POINT[$i]} | sed -e "s/\///g"))
+    	if [[ $MOUNT_POINT[$i] == "/" ]]; then
+    		cryptsetup luksFormat --force-password ${DEVICE[1]}
+		    cryptsetup open ${DEVICE[1]} cryptroot
+
+    		mkfs.btrfs -L archroot /dev/mapper/cryptroot
+
+		    mount /dev/mapper/cryptroot $ARCH_ROOT/
+
+		    LABEL+=(_)
+
+		    continue
+    	elif [[ $MOUNT_POINT[$i] == "/boot" ]]; then
+		    mkfs.vfat -F32 ${DEVICE[0]}
+		    
+		    LABEL+=(_)
+  			
+  			continue
+    	fi
+
+		LABEL+=(crypt$(echo ${MOUNT_POINT[$i]} | sed -e "s/\///g"))
 
         dd bs=512 count=4 if=/dev/random of=$ARCH_ROOT/etc/keyfiles/${LABEL[$i]} iflag=fullblock
         chmod 600 $ARCH_ROOT/etc/keyfiles/${LABEL[$i]}
@@ -88,11 +89,15 @@ fmt_enc_partition() {
 
         mkfs.btrfs  /dev/mapper/${LABEL[$i]}
 
-	mkdir $ARCH_ROOT${MOUNT_POINT[$i]}
-
-        mount /dev/mapper/${LABEL[$i]} $ARCH_ROOT${MOUNT_POINT[$i]}
-
     done
+
+    for i in $(seq 0 $((DEVICE_COUNT-1))); do
+		[[ $MOUNT_POINT[$i] == "/" ]] && continue
+
+		mkdir -p $ARCH_ROOT${MOUNT_POINT[$i]}
+		mount /dev/mapper/${LABEL[$i]} $ARCH_ROOT${MOUNT_POINT[$i]}
+    done
+
 }
 
 install_pkgs() {
