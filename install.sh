@@ -43,7 +43,7 @@ partition() {
 
 
     for device in $(lsblk | grep "─" | awk '{print $1}'); do
-    	print "${device:2} > "; read mount_point
+    	printf "${device:2} > "; read mount_point
 
     	[[ -z $mount_point ]] && continue
 
@@ -58,6 +58,23 @@ partition() {
 fmt_enc_partition() {
     mkdir $ARCH_ROOT/etc
     mkdir $ARCH_ROOT/etc/keyfiles
+
+
+   for i in $(seq 0 $((DEVICE_COUNT-1)) ); do
+   	if [[ $MOUNT_POINT[$i] == "/" ]]; then
+    		cryptsetup luksFormat --force-password ${DEVICE[1]}
+		    cryptsetup open ${DEVICE[1]} cryptroot
+
+    		mkfs.btrfs -L archroot /dev/mapper/cryptroot
+
+		    mount /dev/mapper/cryptroot $ARCH_ROOT/
+
+		    LABEL+=(_)
+
+		    break
+	fi
+    done
+   
 
     for i in $(seq 0 $((DEVICE_COUNT-1)) ); do
     	if [[ $MOUNT_POINT[$i] == "/" ]]; then
