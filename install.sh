@@ -60,7 +60,7 @@ fmt_enc_partition() {
     mkdir $ARCH_ROOT/etc/keyfiles
 
     for i in $(seq 0 $((DEVICE_COUNT-1)) ); do
-       	if [[ $MOUNT_POINT[$i] == "/" ]]; then
+       	if [[ ${MOUNT_POINT[$i]} == "/" ]]; then
     		cryptsetup luksFormat --force-password ${DEVICE[$i]}
 		    cryptsetup open ${DEVICE[$i]} cryptroot
 
@@ -72,7 +72,7 @@ fmt_enc_partition() {
 
 		    continue
 	fi
-        if [[ $MOUNT_POINT[$i] == "/boot" ]]; then
+        if [[ ${MOUNT_POINT[$i]} == "/boot" ]]; then
 		    mkfs.vfat -F32 ${DEVICE[$i]}
 		    
 		    LABEL+=(_)
@@ -93,8 +93,8 @@ fmt_enc_partition() {
     done
 
     for i in $(seq 0 $((DEVICE_COUNT-1))); do
-		[[ $MOUNT_POINT[$i] == "/" ]] && continue
-		[[ $MOUNT_POINT[$i] == "/boot" ]] && continue
+		[[ ${MOUNT_POINT[$i]} == "/" ]] && continue
+		[[ ${MOUNT_POINT[$i]} == "/boot" ]] && continue
 		mkdir -p $ARCH_ROOT${MOUNT_POINT[$i]}
 		mount /dev/mapper/${LABEL[$i]} $ARCH_ROOT${MOUNT_POINT[$i]}
     done
