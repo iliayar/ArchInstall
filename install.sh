@@ -137,7 +137,11 @@ install_refind() {
     mkdir boot
     cp refind/refind_x64.efi boot/bootx64.efi
 EOF
-    uuid=$(get_uuid ${DEVICE[1]:5})
+    for i in $(seq 0 $((DEVICE_COUNT-1)) ); do
+    	if [[ ${MOUNT_POINT[$i]} == "/" ]]; then
+		uuid=$(get_uuid ${DEVICE[$i]:5})
+	fi
+    done
     cat > $ARCH_ROOT/boot/EFI/refind/refind.conf <<EOF
 timeout 10
 
@@ -155,7 +159,9 @@ menuentry "Arch Linux" {
 }
 EOF
 echo "cryptroot UUID=$uuid none" >> $ARCH_ROOT/etc/crypttab
-for i in $(seq 2 $((DEVICE_COUNT-1)) ); do
+for i in $(seq 0 $((DEVICE_COUNT-1)) ); do
+ [[ ${MOUNT_POINT[$i]} == "/" ]] && continue
+ [[ ${MOUNT_POINT[$i]} == "/boot" ]] && continue
  echo "${LABEL[$i]} UUID=$(get_uuid ${DEVICE[$i]:5}) /etc/keyfiles/${LABEL[$i]} luks" >> $ARCH_ROOT/etc/crypttab
 done
 }
