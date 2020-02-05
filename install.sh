@@ -61,25 +61,13 @@ fmt_enc_partition() {
 
 
    for i in $(seq 0 $((DEVICE_COUNT-1)) ); do
-   	if [[ $MOUNT_POINT[$i] == "/" ]]; then
-    		cryptsetup luksFormat --force-password ${DEVICE[1]}
-		    cryptsetup open ${DEVICE[1]} cryptroot
-
-    		mkfs.btrfs -L archroot /dev/mapper/cryptroot
-
-		    mount /dev/mapper/cryptroot $ARCH_ROOT/
-
-		    LABEL+=(_)
-
-		    break
-	fi
     done
    
 
     for i in $(seq 0 $((DEVICE_COUNT-1)) ); do
-    	if [[ $MOUNT_POINT[$i] == "/" ]]; then
-    		cryptsetup luksFormat --force-password ${DEVICE[1]}
-		    cryptsetup open ${DEVICE[1]} cryptroot
+       	if [[ $MOUNT_POINT[$i] == "/" ]]; then
+    		cryptsetup luksFormat --force-password ${DEVICE[$i]}
+		    cryptsetup open ${DEVICE[$i]} cryptroot
 
     		mkfs.btrfs -L archroot /dev/mapper/cryptroot
 
@@ -88,12 +76,13 @@ fmt_enc_partition() {
 		    LABEL+=(_)
 
 		    continue
-    	elif [[ $MOUNT_POINT[$i] == "/boot" ]]; then
-		    mkfs.vfat -F32 ${DEVICE[0]}
+	fi
+        if [[ $MOUNT_POINT[$i] == "/boot" ]]; then
+		    mkfs.vfat -F32 ${DEVICE[$i]}
 		    
 		    LABEL+=(_)
   			
-  			continue
+  	            continue
     	fi
 
 		LABEL+=(crypt$(echo ${MOUNT_POINT[$i]} | sed -e "s/\///g"))
