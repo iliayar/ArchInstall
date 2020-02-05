@@ -59,11 +59,6 @@ fmt_enc_partition() {
     mkdir $ARCH_ROOT/etc
     mkdir $ARCH_ROOT/etc/keyfiles
 
-
-   for i in $(seq 0 $((DEVICE_COUNT-1)) ); do
-    done
-   
-
     for i in $(seq 0 $((DEVICE_COUNT-1)) ); do
        	if [[ $MOUNT_POINT[$i] == "/" ]]; then
     		cryptsetup luksFormat --force-password ${DEVICE[$i]}
