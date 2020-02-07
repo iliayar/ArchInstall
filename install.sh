@@ -111,7 +111,7 @@ fmt_enc_partition() {
 
 install_pkgs() {
 
-    pacstrap $ARCH_ROOT base base-devel intel-ucode refind-efi dialog btrfs-progs sudo networkmanager git wget yajl xorg-server xorg-apps sddm i3 termite vim zsh reflector
+    pacstrap $ARCH_ROOT base intel-ucode refind-efi btrfs-progs sudo
 
 }
 
@@ -270,15 +270,15 @@ echo "13. Bootloader"
 /bin/bash
 clear
 
-echo "14. Add user"
-add_user
-/bin/bash
-clear
+# echo "14. Add user"
+# add_user
+# /bin/bash
+# clear
 
-echo "15. Extras installing"
-extras
-/bin/bash
-clear
+# echo "15. Extras installing"
+# extras
+# /bin/bash
+# clear
 
 }
 
