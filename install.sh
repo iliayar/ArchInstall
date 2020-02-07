@@ -143,7 +143,7 @@ install_refind() {
     chrun refind-install
     arch-chroot $ARCH_ROOT /bin/bash <<EOF
     cd /boot/EFI
-    mkdir BOOT
+    mkdir boot
     cp refind/refind_x64.efi boot/bootx64.efi
 EOF
     for i in $(seq 0 $((DEVICE_COUNT-1)) ); do
@@ -151,7 +151,7 @@ EOF
 		uuid=$(get_uuid ${DEVICE[$i]:5})
 	fi
     done
-    cat > $ARCH_ROOT/boot/EFI/BOOT/refind.conf <<EOF
+    cat > $ARCH_ROOT/boot/EFI/refind/refind.conf <<EOF
 timeout 10
 
 menuentry "Arch Linux" {
