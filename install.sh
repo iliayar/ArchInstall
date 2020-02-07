@@ -111,6 +111,7 @@ fmt_enc_partition() {
 
 install_pkgs() {
 
+    pacman -Sy archlinux-keyring
     pacstrap $ARCH_ROOT base intel-ucode refind-efi btrfs-progs sudo
 
 }
