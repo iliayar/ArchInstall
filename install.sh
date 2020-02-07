@@ -111,7 +111,7 @@ fmt_enc_partition() {
 
 install_pkgs() {
 
-    pacstrap $ARCH_ROOT base base-devel intel-ucode refind-efi dialog btrfs-progs sudo networkmanager git wget yajl xorg-server xorg-apps sddm i3 termite vim zsh reflector
+    pacstrap $ARCH_ROOT base base-devel intel-ucode refind-efi dialog btrfs-progs sudo networkmanager git wget yajl xorg-server xorg-apps sddm i3 termite vim zsh reflector linux linux-firmware mkinitcpio
 
 }
 
