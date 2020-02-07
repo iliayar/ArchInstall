@@ -56,11 +56,10 @@ partition() {
 }
 
 fmt_enc_partition() {
-    mkdir $ARCH_ROOT/etc
-    mkdir $ARCH_ROOT/etc/keyfiles
+ 
 
-    for i in $(seq 0 $((DEVICE_COUNT-1)) ); do
-       	if [[ ${MOUNT_POINT[$i]} == "/" ]]; then
+    for i in $(seq 0 $((DEVICE_COUNT)) ); do
+           	if [[ ${MOUNT_POINT[$i]} == "/" ]]; then
     		cryptsetup luksFormat --force-password ${DEVICE[$i]}
 		    cryptsetup open ${DEVICE[$i]} cryptroot
 
@@ -71,16 +70,25 @@ fmt_enc_partition() {
 		    LABEL+=(_)
 
 		    continue
-	fi
-        if [[ ${MOUNT_POINT[$i]} == "/boot" ]]; then
+	    fi
+    done
+
+    mkdir $ARCH_ROOT/etc
+    mkdir $ARCH_ROOT/etc/keyfiles
+
+    #TODO sorting by depth
+
+    for i in $(seq 0 $((DEVICE_COUNT-1)) ); do
+        [[ ${MOUNT_POINT[$i]} = "/" ]] && continue
+        if [[ ${MOUNT_POINT[$i]} = "/boot" ]]; then
 		    mkfs.vfat -F32 ${DEVICE[$i]}
 		    
 		    LABEL+=(_)
   			
-  	            continue
+  	        continue
     	fi
 
-		LABEL+=(crypt$(echo ${MOUNT_POINT[$i]} | sed -e "s/\///g"))
+	    LABEL+=(crypt$(echo ${MOUNT_POINT[$i]} | sed -e "s/\///g"))
 
         dd bs=512 count=4 if=/dev/random of=$ARCH_ROOT/etc/keyfiles/${LABEL[$i]} iflag=fullblock
         chmod 600 $ARCH_ROOT/etc/keyfiles/${LABEL[$i]}
@@ -94,7 +102,7 @@ fmt_enc_partition() {
 
     for i in $(seq 0 $((DEVICE_COUNT-1))); do
 		[[ ${MOUNT_POINT[$i]} == "/" ]] && continue
-		[[ ${MOUNT_POINT[$i]} == "/boot" ]] && continue
+		[[ ${MOUNT_POINT[$i]} == "/boot" ]] && mkdir $ARCH_ROOT/boot; mount ${DEVICE[$i]} $ARCH_ROOT/boot; continue
 		mkdir -p $ARCH_ROOT${MOUNT_POINT[$i]}
 		mount /dev/mapper/${LABEL[$i]} $ARCH_ROOT${MOUNT_POINT[$i]}
     done
