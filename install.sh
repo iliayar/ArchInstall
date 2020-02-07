@@ -204,65 +204,80 @@ fi
 
 echo "1. Connect to the Internet"
 internet
+/bin/bash
 clear
 
 echo "2. Update System clock"
 timedatectl set-ntp true
+/bin/bash 
 clear
 
 echo "3. Partition the disks"
 [[ MANUAL -eq 2 ]] && partition || /bin/bash
+/bin/bash
 clear
 
 echo "4. Format And Encrypt partitions"
 [[ MANUAL -eq 2 ]] && fmt_enc_partition || /bin/bash
+/bin/bash
 clear
 
 echo "5. Installing base packages"
 install_pkgs
+/bin/bash
 clear
 
 echo "6. Fstab"
 genfstab -U $ARCH_ROOT >> $ARCH_ROOT/etc/fstab
+/bin/bash
 clear
 
 echo "7. Swapfile"
 make_swap
+/bin/bash
 clear
 
 echo "8. Time zone"
 chrun 'ln -sf /usr/share/zoneinfo/Europe/Moscow /etc/localtime'
 chrun 'hwclock --systohc'
+/bin/bash
 clear
 
 echo "9. Localization"
 localization
+/bin/bash
 clear
 
 echo "10. Network"
 chrun 'echo "ArchLaptop" > /etc/hostname'
 chrun 'echo "127.0.0.1 localhost" >> /etc/hosts'
+/bin/bash
 clear
 
 echo "11. Initramfs"
 [[ MANUAL -eq 2 ]] && sed -i 's/block filesystems/block encrypt filesystems/g' $ARCH_ROOT/etc/mkinitcpio.conf || /bin/bash
 chrun 'mkinitcpio -p linux'
+/bin/bash
 clear
 
 echo "12. Root password"
 chrun passwd
+/bin/bash
 clear
 
 echo "13. Bootloader"
 [[ MANUAL -eq 2 ]] && install_refind || /bin/bash
+/bin/bash
 clear
 
 echo "14. Add user"
 add_user
+/bin/bash
 clear
 
 echo "15. Extras installing"
 extras
+/bin/bash
 clear
 
 }
