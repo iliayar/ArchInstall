@@ -1,3 +1,3 @@
 # ArchInstall
-My Arch Installation sripts
-with btrs, encryption and rEFInd
+My Arch Installation sript
+with btrs, encryption, rEFInd and some stuf
