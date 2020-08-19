@@ -13,7 +13,7 @@ get_uuid() {
 
 
 chrun() {
-    arch-chroot $ARCH_ROOT /bin/bash -c "$1"
+    artools-chroot $ARCH_ROOT /bin/bash -c "$1"
 }
 
 internet() {
@@ -27,7 +27,7 @@ internet() {
 	    echo $test | grep -G -q "^[12]$" && break
 	done
 	if [[ $test -eq 2 ]]; then
-	    wifi-menu
+	    # TODO: connman
 	fi
     done
 
@@ -37,8 +37,7 @@ internet() {
 partition() {
 
     echo "   Partitioning"
-    parted
-    parted -l
+    /bin/bash # TODO: fdisk
     echo "Leave empty for skip"
 
 
@@ -111,12 +110,12 @@ fmt_enc_partition() {
 
 install_pkgs() {
 
-    pacstrap $ARCH_ROOT base base-devel intel-ucode refind-efi dialog btrfs-progs sudo networkmanager git wget yajl xorg-server xorg-apps vim reflector linux linux-firmware mkinitcpio
+    basestrap $ARCH_ROOT base base-devel intel-ucode refind-efi dialog btrfs-progs sudo networkmanager git wget yajl xorg-server xorg-apps vim reflector linux linux-firmware mkinitcpio
 
 }
 
 make_swap() {
-    arch-chroot $ARCH_ROOT /bin/bash <<EOF
+    artools-chroot $ARCH_ROOT /bin/bash <<EOF
     truncate -s 0 /swapfile
     chattr +C /swapfile
     btrfs property set /swapfile compression none
@@ -140,7 +139,7 @@ localization() {
 install_refind() {
 
     chrun refind-install
-    arch-chroot $ARCH_ROOT /bin/bash <<EOF
+    artools-chroot $ARCH_ROOT /bin/bash <<EOF
     cd /boot/EFI
     mkdir boot
     cp refind/refind_x64.efi boot/bootx64.efi
@@ -205,7 +204,8 @@ main() {
     clear
 
     echo "2. Update System clock"
-    timedatectl set-ntp true
+    sudo ntpd -qg
+    sudo hwclock -w
     clear
 
     echo "3. Partition the disks"
@@ -221,7 +221,7 @@ main() {
     clear
 
     echo "6. Fstab"
-    genfstab -U $ARCH_ROOT >> $ARCH_ROOT/etc/fstab
+    sudo bash -c "fstabgen -U $ARCH_ROOT >> $ARCH_ROOT/etc/fstab"
     clear
 
     echo "7. Swapfile"
