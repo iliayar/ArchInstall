@@ -27,7 +27,7 @@ internet() {
 	    echo $test | grep -G -q "^[12]$" && break
 	done
 	if [[ $test -eq 2 ]]; then
-	    # TODO: connman
+	    connmanctl
 	fi
     done
 
@@ -37,7 +37,7 @@ internet() {
 partition() {
 
     echo "   Partitioning"
-    /bin/bash # TODO: fdisk
+    cfdisk
     echo "Leave empty for skip"
 
 
@@ -110,7 +110,7 @@ fmt_enc_partition() {
 
 install_pkgs() {
 
-    basestrap $ARCH_ROOT base base-devel intel-ucode refind-efi dialog btrfs-progs sudo networkmanager git wget yajl xorg-server xorg-apps vim reflector linux linux-firmware mkinitcpio
+    basestrap $ARCH_ROOT base base-devel intel-ucode refind-efi dialog btrfs-progs sudo networkmanager-openrc dhcp dhcpcd networkmanager git wget yajl xorg-server xorg-apps vim reflector linux linux-firmware mkinitcpio cryptsetup
 
 }
 
@@ -182,8 +182,9 @@ add_user() {
 }
 
 extras() {
+    chrun 'mkdir /home/iliayar/Documents'
+    chrun 'git clone https://github.com/iliayar/dotfiles /home/iliayar/Documents/dotfiles'
     chrun 'reflector --latest 100 --protocol http --protocol https --sort rate --save /etc/pacman.d/mirrorlist'
-    chrun 'systemctl enable NetworkManager'
 }
 
 main() {
