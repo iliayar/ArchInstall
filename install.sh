@@ -204,8 +204,8 @@ main() {
     clear
 
     echo "2. Update System clock"
-    sudo ntpd -qg
-    sudo hwclock -w
+    ntpd -qg
+    hwclock -w
     clear
 
     echo "3. Partition the disks"
@@ -221,7 +221,7 @@ main() {
     clear
 
     echo "6. Fstab"
-    sudo bash -c "fstabgen -U $ARCH_ROOT >> $ARCH_ROOT/etc/fstab"
+    fstabgen -U $ARCH_ROOT >> $ARCH_ROOT/etc/fstab
     clear
 
     echo "7. Swapfile"
