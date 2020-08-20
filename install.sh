@@ -11,29 +11,6 @@ get_uuid() {
     ls -l /dev/disk/by-uuid/ | grep $1 | awk '{print $9}'
 }
 
-
-chrun() {
-    arch-chroot $ARCH_ROOT /bin/bash -c "$1"
-}
-
-internet() {
-
-    while ! ping -c 1 ya.ru; do
-	echo "   1. Retry"
-	echo "   2. Use Wi-Fi"
-	while true; do
-	    echo "Choose: "
-	    read test
-	    echo $test | grep -G -q "^[12]$" && break
-	done
-	if [[ $test -eq 2 ]]; then
-	    wifi-menu
-	fi
-    done
-
-}
-
-
 partition() {
 
     echo "   Partitioning"
@@ -76,7 +53,8 @@ fmt_enc_partition() {
     mkdir $ARCH_ROOT/etc
     mkdir $ARCH_ROOT/etc/keyfiles
 
-    #TODO sorting by depth
+    # TODO: sorting by depth
+    # NOTE: Just sort is OK
 
     for i in $(seq 0 $((DEVICE_COUNT-1)) ); do
 	[[ ${MOUNT_POINT[$i]} = "/" ]] && continue
@@ -109,12 +87,6 @@ fmt_enc_partition() {
 
 }
 
-install_pkgs() {
-
-    pacstrap $ARCH_ROOT base base-devel intel-ucode refind-efi dialog btrfs-progs sudo networkmanager git wget yajl xorg-server xorg-apps vim reflector linux linux-firmware mkinitcpio
-
-}
-
 make_swap() {
     arch-chroot $ARCH_ROOT /bin/bash <<EOF
     truncate -s 0 /swapfile
@@ -127,16 +99,6 @@ make_swap() {
 EOF
 
 }
-
-localization() {
-
-    sed -i "s/#en_US.UTF-8/en_US.UTF-8/g" $ARCH_ROOT/etc/locale.gen
-    sed -i "s/#ru_RU.UTF-8/ru_RU.UTF-8/g" $ARCH_ROOT/etc/locale.gen
-    chrun locale-gen
-    chrun 'echo "LANG=en_US.UTF-8" > /etc/locale.conf'
-
-}
-
 install_refind() {
 
     chrun refind-install
@@ -174,93 +136,14 @@ EOF
     done
 }
 
-add_user() {
-
-    chrun 'useradd -m -G video,audio,input,wheel,users -s /bin/bash iliayar'
-    chrun 'passwd iliayar'
-    sed -i "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/g" $ARCH_ROOT/etc/sudoers
-
-}
-
-extras() {
-    chrun 'reflector --latest 100 --protocol http --protocol https --sort rate --save /etc/pacman.d/mirrorlist'
-    chrun 'systemctl enable NetworkManager'
-}
-
 main() {
 
-    echo "Automatic Partitioning: "
-    echo "    1. No"
-    echo "    2. Yes"
-    echo "Choose: "
-    read MANUAL
-
-    if [[ MANUAL -eq 1 ]]; then
-	echo "Enter Arch root path: "
-	read ARCH_ROOT
-    fi
-
-    echo "1. Connect to the Internet"
-    internet
+    echo "1. Partition the disks"
+    partition
     clear
 
-    echo "2. Update System clock"
-    timedatectl set-ntp true
-    clear
-
-    echo "3. Partition the disks"
-    [[ MANUAL -eq 2 ]] && partition || /bin/bash
-    clear
-
-    echo "4. Format And Encrypt partitions"
-    [[ MANUAL -eq 2 ]] && fmt_enc_partition || /bin/bash
-    clear
-
-    echo "5. Installing base packages"
-    install_pkgs
-    clear
-
-    echo "6. Fstab"
-    genfstab -U $ARCH_ROOT >> $ARCH_ROOT/etc/fstab
-    clear
-
-    echo "7. Swapfile"
-    make_swap
-    clear
-
-    echo "8. Time zone"
-    chrun 'ln -sf /usr/share/zoneinfo/Europe/Moscow /etc/localtime'
-    chrun 'hwclock --systohc'
-    clear
-
-    echo "9. Localization"
-    localization
-    clear
-
-    echo "10. Network"
-    chrun 'echo "ArchLaptop" > /etc/hostname'
-    chrun 'echo "127.0.0.1 localhost" >> /etc/hosts'
-    clear
-
-    echo "11. Initramfs"
-    [[ MANUAL -eq 2 ]] && sed -i 's/block filesystems/block encrypt filesystems/g' $ARCH_ROOT/etc/mkinitcpio.conf || /bin/bash
-    chrun 'mkinitcpio -p linux'
-    clear
-
-    echo "12. Root password"
-    chrun passwd
-    clear
-
-    echo "13. Bootloader"
-    [[ MANUAL -eq 2 ]] && install_refind || /bin/bash
-    clear
-
-    echo "14. Add user"
-    add_user
-    clear
-
-    echo "15. Extras installing"
-    extras
+    echo "2. Format And Encrypt partitions"
+    fmt_enc_partition
     clear
 
 }
