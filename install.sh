@@ -14,7 +14,7 @@ get_uuid() {
 partition() {
 
     echo "   Partitioning"
-    parted
+    cfdisk
     parted -l
     echo "Leave empty for skip"
 
