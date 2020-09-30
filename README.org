@@ -1,0 +1,8 @@
+* ArchInstall
+My Arch Installation sript
+with btrfs, encryption, rEFInd and some stuf
+
+1. Connect to internet
+2. =wget https://raw.githubusercontent.com/iliayar/ArchInstall/master/install.sh=
+3. =chmod +x install.sh=
+4. =./install.sh=

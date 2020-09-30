@@ -37,7 +37,7 @@ internet() {
 partition() {
 
     echo "   Partitioning"
-    parted
+    cfdisk
     parted -l
     echo "Leave empty for skip"
 
@@ -176,8 +176,8 @@ EOF
 
 add_user() {
 
-    chrun 'useradd -m -G video,audio,input,wheel,users -s /bin/bash iliayar'
-    chrun 'passwd iliayar'
+    chrun "useradd -m -G video,audio,input,wheel,users -s /bin/bash ${USER}"
+    chrun "passwd ${USER}"
     sed -i "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/g" $ARCH_ROOT/etc/sudoers
 
 }
@@ -196,10 +196,12 @@ main() {
     read MANUAL
 
     if [[ MANUAL -eq 1 ]]; then
-	echo "Enter Arch root path: "
+	echo -n "Enter Arch root path: "
 	read ARCH_ROOT
     fi
 
+    echo -n "Enter username: " && read USER
+    
     echo "1. Connect to the Internet"
     internet
     clear
